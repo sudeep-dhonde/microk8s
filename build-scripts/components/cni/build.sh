@@ -11,7 +11,8 @@ go mod vendor
 sed -i 's/^package main/package plugin_main/' plugins/*/*/*.go
 sed -i 's/^func main()/func Main()/' plugins/*/*/*.go
 
-export CGO_ENABLED=0
+export GOEXPERIMENT=opensslcrypto
+export CGO_ENABLED=1
 
 go build -o cni -ldflags "-s -w -extldflags -static -X github.com/containernetworking/plugins/pkg/utils/buildversion.BuildVersion=${VERSION}" ./cni.go
 
