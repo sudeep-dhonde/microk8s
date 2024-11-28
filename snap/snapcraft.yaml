@@ -21,8 +21,9 @@ environment:
 parts:
   build-deps:
     plugin: nil
-    build-snaps:
-      - go/1.21/stable
+    override-build: |
+      snap install go --classic --channel 1.21-fips/stable
+      snap refresh go --channel 1.21-fips/stable
     build-packages:
       - autoconf
       - automake

@@ -1,0 +1,25 @@
+From b3a80ca41c5f2e557c9e8d76ad85704e7a04d7dc Mon Sep 17 00:00:00 2001
+From: = <sudeep.dhonde@hpe.com>
+Date: Wed, 27 Nov 2024 08:19:23 +0000
+Subject: [PATCH] enable cgo setting
+
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index c8ced67a..c41cda84 100644
+--- a/Makefile
++++ b/Makefile
+@@ -170,7 +170,7 @@ $(GOIMPORTS):
+ .PHONY: build-cross
+ build-cross: LDFLAGS += -extldflags "-static"
+ build-cross: $(GOX)
+-	GOFLAGS="-trimpath" GO111MODULE=on CGO_ENABLED=0 $(GOX) -parallel=3 -output="_dist/{{.OS}}-{{.Arch}}/$(BINNAME)" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' ./cmd/helm
++	GOFLAGS="-trimpath" GO111MODULE=on CGO_ENABLED=1 $(GOX) -parallel=3 -output="_dist/{{.OS}}-{{.Arch}}/$(BINNAME)" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' ./cmd/helm
+ 
+ .PHONY: dist
+ dist:
+-- 
+2.43.0
+
