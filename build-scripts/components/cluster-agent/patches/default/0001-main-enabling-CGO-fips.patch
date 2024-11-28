@@ -1,0 +1,26 @@
+From 012d63225dd1a886869b442967c2dd9ee77ddd0b Mon Sep 17 00:00:00 2001
+From: sudeep-dhonde <sudeep.dhonde@hpe.com>
+Date: Wed, 27 Nov 2024 19:09:10 +0530
+Subject: [PATCH] [main] enabling CGO fips
+
+Branch: [main]
+---
+ makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/makefile b/makefile
+index 7e50fde..2072e3b 100644
+--- a/makefile
++++ b/makefile
+@@ -3,7 +3,7 @@ all: cluster-agent
+ .PHONY = go.fmt go.vet go.lint go.staticcheck go.test
+ 
+ cluster-agent: *.go **/*.go go.mod go.sum
+-	CGO_ENABLED=0 go build -ldflags '-s -w' -o cluster-agent ./main.go
++	CGO_ENABLED=1 go build -ldflags '-s -w' -o cluster-agent ./main.go
+ 
+ go.fmt:
+ 	go mod tidy
+-- 
+2.43.0
+

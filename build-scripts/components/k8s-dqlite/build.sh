@@ -1,9 +1,9 @@
-#!/bin/bash
+INSTALL="${1}"
+mkdir -p "${INSTALL}/bin" "${INSTALL}/usr/lib"
 
-INSTALL="${1}/bin"
-mkdir -p "${INSTALL}"
+export GOEXPERIMENT=boringcrypto
+make dynamic -j
 
-make static -j
-
-cp bin/static/dqlite "${INSTALL}/dqlite"
-cp bin/static/k8s-dqlite "${INSTALL}/k8s-dqlite"
+cp bin/dynamic/dqlite "${INSTALL}/bin/dqlite"
+cp bin/dynamic/k8s-dqlite "${INSTALL}/bin/k8s-dqlite"
+cp bin/dynamic/lib/*so* "${INSTALL}/usr/lib"

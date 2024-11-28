@@ -1,0 +1,359 @@
+From 12e84ad62fb280b35daa770958d8f81c64d854f0 Mon Sep 17 00:00:00 2001
+From: debian <debian@debian.debian>
+Date: Tue, 26 Nov 2024 20:43:50 +0530
+Subject: [PATCH] fips changes
+
+---
+ .../components/cluster-agent/build.sh         |  3 +++
+ build-scripts/components/etcd/build.sh        |  3 ++-
+ build-scripts/components/flanneld/build.sh    |  3 ++-
+ .../default/0002-enable-cgo-setting.patch     | 25 +++++++++++++++++++
+ build-scripts/components/k8s-dqlite/build.sh  | 14 +++++------
+ build-scripts/components/kubernetes/build.sh  |  2 +-
+ microk8s-resources/default-args/fips-env      | 18 +++++++++++++
+ .../wrappers/microk8s-helm.wrapper            |  6 +++++
+ .../wrappers/microk8s-helm3.wrapper           |  6 +++++
+ .../wrappers/microk8s-kubectl.wrapper         |  6 +++++
+ microk8s-resources/wrappers/openssl.wrapper   | 15 ++++++++---
+ .../wrappers/run-apiserver-proxy-with-args    |  6 +++++
+ .../wrappers/run-cluster-agent-with-args      |  6 +++++
+ .../wrappers/run-etcd-with-args               |  6 +++++
+ .../wrappers/run-flanneld-with-args           |  6 +++++
+ .../wrappers/run-k8s-dqlite-with-args         |  5 ++++
+ .../wrappers/run-kubelite-with-args           |  6 +++++
+ snap/snapcraft.yaml                           |  7 +++---
+ 18 files changed, 127 insertions(+), 16 deletions(-)
+ create mode 100644 build-scripts/components/helm/patches/default/0002-enable-cgo-setting.patch
+ create mode 100644 microk8s-resources/default-args/fips-env
+
+diff --git a/build-scripts/components/cluster-agent/build.sh b/build-scripts/components/cluster-agent/build.sh
+index 86282e7f..13b24d78 100755
+--- a/build-scripts/components/cluster-agent/build.sh
++++ b/build-scripts/components/cluster-agent/build.sh
+@@ -3,5 +3,8 @@
+ export INSTALL="${1}/bin"
+ mkdir -p "${INSTALL}"
+ 
++export GOEXPERIMENT=opensslcrypto
++
+ make cluster-agent
++
+ cp cluster-agent "${INSTALL}"
+diff --git a/build-scripts/components/etcd/build.sh b/build-scripts/components/etcd/build.sh
+index 3eaaa9df..a58ed1cf 100755
+--- a/build-scripts/components/etcd/build.sh
++++ b/build-scripts/components/etcd/build.sh
+@@ -3,7 +3,8 @@
+ export INSTALL="${1}"
+ mkdir -p "${INSTALL}"
+ 
+-GO_LDFLAGS="-s -w" GO_BUILD_FLAGS="-v" ./build.sh
++sed -i 's/CGO_ENABLED=0/CGO_ENABLED=1/' build.sh
++GOEXPERIMENT=opensslcrypto GO_LDFLAGS="-s -w" GO_BUILD_FLAGS="-v" ./build.sh
+ 
+ for bin in etcd etcdctl; do
+   cp "bin/${bin}" "${INSTALL}/${bin}"
+diff --git a/build-scripts/components/flanneld/build.sh b/build-scripts/components/flanneld/build.sh
+index c2904a77..ee0e5f4f 100755
+--- a/build-scripts/components/flanneld/build.sh
++++ b/build-scripts/components/flanneld/build.sh
+@@ -5,7 +5,8 @@ mkdir -p "${INSTALL}"
+ 
+ VERSION="${2}"
+ 
+-export CGO_ENABLED=0
++export CGO_ENABLED=1
++export GOEXPERIMENT=opensslcrypto
+ go build -o dist/flanneld -ldflags "-s -w -X github.com/flannel-io/flannel/version.Version=${VERSION} -extldflags -static"
+ 
+ cp dist/flanneld "${INSTALL}/flanneld"
+diff --git a/build-scripts/components/helm/patches/default/0002-enable-cgo-setting.patch b/build-scripts/components/helm/patches/default/0002-enable-cgo-setting.patch
+new file mode 100644
+index 00000000..0fba5316
+--- /dev/null
++++ b/build-scripts/components/helm/patches/default/0002-enable-cgo-setting.patch
+@@ -0,0 +1,25 @@
++From b3a80ca41c5f2e557c9e8d76ad85704e7a04d7dc Mon Sep 17 00:00:00 2001
++From: = <sudeep.dhonde@hpe.com>
++Date: Wed, 27 Nov 2024 08:19:23 +0000
++Subject: [PATCH] enable cgo setting
++
++---
++ Makefile | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++diff --git a/Makefile b/Makefile
++index c8ced67a..c41cda84 100644
++--- a/Makefile
+++++ b/Makefile
++@@ -170,7 +170,7 @@ $(GOIMPORTS):
++ .PHONY: build-cross
++ build-cross: LDFLAGS += -extldflags "-static"
++ build-cross: $(GOX)
++-	GOFLAGS="-trimpath" GO111MODULE=on CGO_ENABLED=0 $(GOX) -parallel=3 -output="_dist/{{.OS}}-{{.Arch}}/$(BINNAME)" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' ./cmd/helm
+++	GOFLAGS="-trimpath" GO111MODULE=on CGO_ENABLED=1 $(GOX) -parallel=3 -output="_dist/{{.OS}}-{{.Arch}}/$(BINNAME)" -osarch='$(TARGETS)' $(GOFLAGS) -tags '$(TAGS)' -ldflags '$(LDFLAGS)' ./cmd/helm
++ 
++ .PHONY: dist
++ dist:
++-- 
++2.43.0
++
+diff --git a/build-scripts/components/k8s-dqlite/build.sh b/build-scripts/components/k8s-dqlite/build.sh
+index c9672777..e8ea1b72 100755
+--- a/build-scripts/components/k8s-dqlite/build.sh
++++ b/build-scripts/components/k8s-dqlite/build.sh
+@@ -1,9 +1,9 @@
+-#!/bin/bash
++INSTALL="${1}"
++mkdir -p "${INSTALL}/bin" "${INSTALL}/usr/lib"
+ 
+-INSTALL="${1}/bin"
+-mkdir -p "${INSTALL}"
++export GOEXPERIMENT=boringcrypto
++make dynamic -j
+ 
+-make static -j
+-
+-cp bin/static/dqlite "${INSTALL}/dqlite"
+-cp bin/static/k8s-dqlite "${INSTALL}/k8s-dqlite"
++cp bin/dynamic/dqlite "${INSTALL}/bin/dqlite"
++cp bin/dynamic/k8s-dqlite "${INSTALL}/bin/k8s-dqlite"
++cp bin/dynamic/lib/*so* "${INSTALL}/usr/lib"
+\ No newline at end of file
+diff --git a/build-scripts/components/kubernetes/build.sh b/build-scripts/components/kubernetes/build.sh
+index 542ba9f6..b8f30bc8 100755
+--- a/build-scripts/components/kubernetes/build.sh
++++ b/build-scripts/components/kubernetes/build.sh
+@@ -5,7 +5,7 @@ INSTALL="${1}"
+ export KUBE_GIT_VERSION_FILE="${PWD}/.version.sh"
+ 
+ for app in kubectl kubelite; do
+-  make WHAT="cmd/${app}" KUBE_STATIC_OVERRIDES=kubelite
++  make WHAT="cmd/${app}" KUBE_CGO_OVERRIDES="${app}"
+   cp _output/bin/"${app}" "${INSTALL}/${app}"
+ done
+ 
+diff --git a/microk8s-resources/default-args/fips-env b/microk8s-resources/default-args/fips-env
+new file mode 100644
+index 00000000..543e357e
+--- /dev/null
++++ b/microk8s-resources/default-args/fips-env
+@@ -0,0 +1,18 @@
++
++# For FIPS-enabled hosts, i.e. when /proc/sys/crypto/fips_enabled is 1,
++# the following configuration is required to use the fips enabled crypto
++# libraries from the host.
++#
++# The paths below are for FIPS enabled Ubuntu 20.04, make sure to adjust
++# accordingly for other distributions.
++
++# Uncomment and specify the binary path and config file for openssl.
++OPENSSL_EXECUTABLE="/usr/bin/openssl"
++OPENSSL_CONF="/etc/ssl/openssl.cnf"
++
++# Uncomment and prepend the FIPS libcrypto location to the LD_LIBRARY_PATH
++LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
++
++# Set GOFIPS=1 so that Go binaries use the FIPS-enabled libcrypto
++GOFIPS=1
++
+diff --git a/microk8s-resources/wrappers/microk8s-helm.wrapper b/microk8s-resources/wrappers/microk8s-helm.wrapper
+index dee8fe5f..22c5b1fc 100755
+--- a/microk8s-resources/wrappers/microk8s-helm.wrapper
++++ b/microk8s-resources/wrappers/microk8s-helm.wrapper
+@@ -12,4 +12,10 @@ fi
+ 
+ exit_if_stopped
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ "${SNAP}/bin/helm" --kubeconfig="${SNAP_DATA}"/credentials/client.config "$@"
+diff --git a/microk8s-resources/wrappers/microk8s-helm3.wrapper b/microk8s-resources/wrappers/microk8s-helm3.wrapper
+index dee8fe5f..22c5b1fc 100755
+--- a/microk8s-resources/wrappers/microk8s-helm3.wrapper
++++ b/microk8s-resources/wrappers/microk8s-helm3.wrapper
+@@ -12,4 +12,10 @@ fi
+ 
+ exit_if_stopped
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ "${SNAP}/bin/helm" --kubeconfig="${SNAP_DATA}"/credentials/client.config "$@"
+diff --git a/microk8s-resources/wrappers/microk8s-kubectl.wrapper b/microk8s-resources/wrappers/microk8s-kubectl.wrapper
+index ea151602..2ead1fe9 100755
+--- a/microk8s-resources/wrappers/microk8s-kubectl.wrapper
++++ b/microk8s-resources/wrappers/microk8s-kubectl.wrapper
+@@ -28,6 +28,12 @@ then
+   export EDITOR="${SNAP}/bin/nano"
+ fi
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ declare -a args="($(cat $SNAP_DATA/args/kubectl))"
+ if [ -n "${args[@]-}" ]
+ then
+diff --git a/microk8s-resources/wrappers/openssl.wrapper b/microk8s-resources/wrappers/openssl.wrapper
+index 550029a6..87e84839 100755
+--- a/microk8s-resources/wrappers/openssl.wrapper
++++ b/microk8s-resources/wrappers/openssl.wrapper
+@@ -3,9 +3,18 @@
+ set -eu
+ 
+ source $SNAP/actions/common/utils.sh
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
+ 
+-use_snap_env
++if [[ -v OPENSSL_EXECUTABLE ]]; then
++  exec "${OPENSSL_EXECUTABLE}" "${@}"
++else
++  use_snap_env
+ 
+-export OPENSSL_CONF="${SNAP}/etc/ssl/openssl.cnf"
++  export OPENSSL_CONF="${SNAP}/etc/ssl/openssl.cnf"
+ 
+-"${SNAP}/usr/bin/openssl" "${@}"
++  "${SNAP}/usr/bin/openssl" "${@}"
++fi
+\ No newline at end of file
+diff --git a/microk8s-resources/wrappers/run-apiserver-proxy-with-args b/microk8s-resources/wrappers/run-apiserver-proxy-with-args
+index 71edf93a..91da9a77 100755
+--- a/microk8s-resources/wrappers/run-apiserver-proxy-with-args
++++ b/microk8s-resources/wrappers/run-apiserver-proxy-with-args
+@@ -21,6 +21,12 @@ fi
+ 
+ sed 's@${SNAP}@'"${SNAP}"'@g;s@${SNAP_DATA}@'"${SNAP_DATA}"'@g' $SNAP_DATA/args/traefik/traefik-template.yaml > $SNAP_DATA/args/traefik/traefik.yaml
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ # This is really the only way I could find to get the args passed in correctly.
+ declare -a args="($(cat $SNAP_DATA/args/apiserver-proxy))"
+ exec "$SNAP/bin/cluster-agent" apiserver-proxy "${args[@]}"
+diff --git a/microk8s-resources/wrappers/run-cluster-agent-with-args b/microk8s-resources/wrappers/run-cluster-agent-with-args
+index ac447438..fe7b0fd8 100755
+--- a/microk8s-resources/wrappers/run-cluster-agent-with-args
++++ b/microk8s-resources/wrappers/run-cluster-agent-with-args
+@@ -12,6 +12,12 @@ set -eu
+ 
+ use_snap_env
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ # This is really the only way I could find to get the args passed in correctly.
+ declare -a args="($(cat $SNAP_DATA/args/cluster-agent))"
+ 
+diff --git a/microk8s-resources/wrappers/run-etcd-with-args b/microk8s-resources/wrappers/run-etcd-with-args
+index a17304ce..38027cee 100755
+--- a/microk8s-resources/wrappers/run-etcd-with-args
++++ b/microk8s-resources/wrappers/run-etcd-with-args
+@@ -26,6 +26,12 @@ fi
+ 
+ export DEFAULT_INTERFACE_IP_ADDR="$(get_default_ip)"
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ # This is really the only way I could find to get the args passed in correctly.
+ declare -a args="($(cat $SNAP_DATA/args/etcd))"
+ exec "$SNAP/etcd" "${args[@]}"
+diff --git a/microk8s-resources/wrappers/run-flanneld-with-args b/microk8s-resources/wrappers/run-flanneld-with-args
+index abbe79f6..21ce3698 100755
+--- a/microk8s-resources/wrappers/run-flanneld-with-args
++++ b/microk8s-resources/wrappers/run-flanneld-with-args
+@@ -32,6 +32,12 @@ export ETCDCTL_API=3
+ # TODO get this from a file
+ data="$(cat $SNAP_DATA/args/flannel-network-mgr-config)"
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ # Prepare etcd configuration for flannel, iff an etcd endpoint is set.
+ # Skip this part if an alternate data store is used (e.g. Kubernetes).
+ if [ ! -z "$etcd_endpoints" ]; then
+diff --git a/microk8s-resources/wrappers/run-k8s-dqlite-with-args b/microk8s-resources/wrappers/run-k8s-dqlite-with-args
+index 3314b89a..78aa30a1 100755
+--- a/microk8s-resources/wrappers/run-k8s-dqlite-with-args
++++ b/microk8s-resources/wrappers/run-k8s-dqlite-with-args
+@@ -40,6 +40,11 @@ if [ -e "${SNAP_DATA}/args/${app}-env" ]
+ then
+   . "${SNAP_DATA}/args/${app}-env"
+ fi
++
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++
+ set +a
+ 
+ declare -a args="($(cat $SNAP_DATA/args/$app))"
+diff --git a/microk8s-resources/wrappers/run-kubelite-with-args b/microk8s-resources/wrappers/run-kubelite-with-args
+index c13e4d4d..48a9d9ea 100755
+--- a/microk8s-resources/wrappers/run-kubelite-with-args
++++ b/microk8s-resources/wrappers/run-kubelite-with-args
+@@ -231,5 +231,11 @@ then
+   echo "1" > /proc/sys/net/bridge/bridge-nf-call-iptables
+ fi
+ 
++set -a
++if [ -e "${SNAP_DATA}/args/fips-env" ]; then
++  . "${SNAP_DATA}/args/fips-env"
++fi
++set +a
++
+ declare -a args="($(cat $SNAP_DATA/args/$app))"
+ exec "$SNAP/$app" "${args[@]}"
+diff --git a/snap/snapcraft.yaml b/snap/snapcraft.yaml
+index 44d69780..c171690f 100644
+--- a/snap/snapcraft.yaml
++++ b/snap/snapcraft.yaml
+@@ -21,8 +21,9 @@ environment:
+ parts:
+   build-deps:
+     plugin: nil
+-    build-snaps:
+-      - go/1.21/stable
++    override-build: |
++      snap install go --classic --channel 1.21-fips/stable
++      snap refresh go --channel 1.21-fips/stable
+     build-packages:
+       - autoconf
+       - automake
+@@ -398,4 +399,4 @@ apps:
+   dbctl:
+     command: microk8s-dbctl.wrapper
+   version:
+-    command: microk8s-version.wrapper
++    command: microk8s-version.wrapper
+\ No newline at end of file
+-- 
+2.25.1
+

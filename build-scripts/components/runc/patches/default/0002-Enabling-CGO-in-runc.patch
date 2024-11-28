@@ -1,0 +1,25 @@
+From 48e9bd7a4ff509b62d639b725d30d6fb401d2738 Mon Sep 17 00:00:00 2001
+From: = <sudeep.dhonde@hpe.com>
+Date: Fri, 29 Nov 2024 08:28:52 +0000
+Subject: [PATCH] Enabling CGO in runc
+
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index e3af9bc..203184c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -40,7 +40,7 @@ ifneq (,$(filter $(GOARCH),arm64 amd64))
+ 	endif
+ endif
+ # Enable static PIE binaries on supported platforms.
+-GO_BUILD_STATIC := $(GO) build -trimpath $(GO_BUILDMODE_STATIC) \
++GO_BUILD_STATIC := CGO_ENABLED=1 $(GO) build -trimpath $(GO_BUILDMODE_STATIC) \
+ 	$(EXTRA_FLAGS) -tags "$(BUILDTAGS) netgo osusergo" \
+ 	-ldflags "$(LDFLAGS_COMMON) $(LDFLAGS_STATIC) $(EXTRA_LDFLAGS)"
+ 
+-- 
+2.43.0
+
